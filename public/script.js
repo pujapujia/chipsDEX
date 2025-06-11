@@ -19,8 +19,8 @@ const CHIPS_TESTNET = {
 };
 
 const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
-const USDT_ADDRESS = "0x5A5cb08Ffea579Ac235e3Ee34B00854e4cEfCbBA"; // Update after deployment
-const DEX_ADDRESS = "0x3FB0be3029ADC6cb52B0cc94825049FC2b9c0dd2"; // Update after deployment
+const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA"; // Checksum diperbaiki
+const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2"; // Checksum diperbaiki
 
 const DEX_ABI = [
   {
@@ -198,8 +198,9 @@ async function updatePriceEstimate() {
     amountOut.value = ethers.utils.formatUnits(estimatedOut, 18);
     priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
   } catch (error) {
-    priceInfo.innerText = `Error calculating price: ${error.message}`;
-    priceInfo.classList.add('error');
+    const errorMsg = error.reason || error.message || 'Unknown error';
+    statusElement.innerText = `Error calculating price: ${errorMsg}`;
+    statusElement.classList.add('error');
   }
 }
 
@@ -287,7 +288,7 @@ async function initiateMint() {
 
 async function initiateBurn() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Connect wallet and enter amount!';
+    statusElement.innerText = `Error: Connect wallet and enter amount!`;
     statusElement.classList.add('error');
     return;
   }
