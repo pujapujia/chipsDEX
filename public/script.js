@@ -18,20 +18,27 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
+// Alamat dengan checksum valid
 const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
-const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA"; // Checksum valid
-const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2"; // Checksum valid
+const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA";
+const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2";
 
-// Validasi alamat saat load
-console.log('Validating addresses...');
-try {
-  ethers.utils.getAddress(FEE_RECEIVER);
-  ethers.utils.getAddress(USDT_ADDRESS);
-  ethers.utils.getAddress(DEX_ADDRESS);
-  console.log('All addresses are valid!');
-} catch (e) {
-  console.error('Address validation failed:', e.message);
+// Validasi alamat manual
+function validateAddress(address, name) {
+  try {
+    const validated = ethers.utils.getAddress(address);
+    console.log(`${name} validated: ${validated}`);
+    return validated;
+  } catch (e) {
+    console.error(`Invalid ${name}:`, e.message);
+    return address; // Fallback ke alamat asli kalo gagal
+  }
 }
+
+console.log('Validating addresses...');
+const validatedFeeReceiver = validateAddress(FEE_RECEIVER, 'FEE_RECEIVER');
+const validatedUsdtAddress = validateAddress(USDT_ADDRESS, 'USDT_ADDRESS');
+const validatedDexAddress = validateAddress(DEX_ADDRESS, 'DEX_ADDRESS');
 
 const DEX_ABI = [
   {
@@ -192,14 +199,15 @@ async function connectWallet() {
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
+    console.error('Connect wallet error:', error);
   }
 }
 
 async function updatePriceEstimate() {
   if (!amountIn.value || !provider) return;
   try {
-    console.log('Initializing DEX contract with address:', DEX_ADDRESS);
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
+    console.log('Initializing DEX contract for price estimate with address:', validatedDexAddress);
+    const contract = new ethers.Contract(validatedDexAddress, DEX_ABI, provider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
     if (tokenIn.value === 'CHIPS') {
@@ -224,8 +232,8 @@ async function initiateSwap() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for swap with address:', DEX_ADDRESS);
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+    console.log('Initializing DEX contract for swap with address:', validatedDexAddress);
+    const contract = new ethers.Contract(validatedDexAddress, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     let nonce = await provider.getTransactionCount(account, 'pending');
@@ -238,11 +246,11 @@ async function initiateSwap() {
         nonce,
       });
     } else {
-      console.log('Initializing USDT contract with address:', USDT_ADDRESS);
-      const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-      const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
+      console.log('Initializing USDT contract for swap with address:', validatedUsdtAddress);
+      const usdtContract = new ethers.Contract(validatedUsdtAddress, USDT_ABI, signer);
+      const allowance = await usdtContract.allowance(account, validatedDexAddress);
       if (allowance.lt(amount)) {
-        const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
+        const approveTx = await usdtContract.approve(validatedDexAddress, amount, {
           gasPrice: ethers.BigNumber.from("10000000000"),
           nonce,
         });
@@ -275,13 +283,13 @@ async function initiateMint() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for mint with address:', DEX_ADDRESS);
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+    console.log('Initializing DEX contract for mint with address:', validatedDexAddress);
+    const contract = new ethers.Contract(validatedDexAddress, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     const nonce = await provider.getTransactionCount(account, 'pending');
 
-    const dexBalance = await provider.getBalance(DEX_ADDRESS);
+    const dexBalance = await provider.getBalance(validatedDexAddress);
     if (dexBalance.lt(amount)) {
       throw new Error("Insufficient CHIPS in DEX for minting");
     }
@@ -311,27 +319,27 @@ async function initiateBurn() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for burn with address:', DEX_ADDRESS);
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider.getSigner());
-    console.log('Initializing USDT contract for burn with address:', USDT_ADDRESS);
-    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, provider.getSigner());
+    console.log('Initializing DEX contract for burn with address:', validatedDexAddress);
+    const contract = new ethers.Contract(validatedDexAddress, DEX_ABI, signer);
+    console.log('Initializing USDT contract for burn with address:', validatedUsdtAddress);
+    const usdtContract = new ethers.Contract(validatedUsdtAddress, USDT_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     let nonce = await provider.getTransactionCount(account, 'pending');
 
-    const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
+    const allowance = await usdtContract.allowance(account, validatedDexAddress);
     if (allowance.lt(amount)) {
-      const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
-        gasPrice: ethers.utils.parseUnits("1", "gwei"),
+      const approveTx = await usdtContract.approve(validatedDexAddress, amount, {
+        gasPrice: ethers.BigNumber.from("10000000000"),
         nonce,
       });
       await approveTx.wait();
-      nonce++;
+      nonce++; // Increment nonce setelah approval
     }
 
     const tx = await contract.burnUsdt(amount, {
       value: fee,
-      gasPrice: ethers.utils.parseUnits("1", "gwei"),
+      gasPrice: ethers.BigNumber.from("10000000000"),
       nonce,
     });
 
