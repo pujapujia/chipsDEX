@@ -1,7 +1,5 @@
 console.log('SCRIPT LOADED:', new Date().toISOString());
-alert('script.js loaded! Open console (F12) and click Connect Wallet.');
 
-// Global elements
 const debugElement = document.getElementById('debug');
 const statusElement = document.getElementById('status');
 const swapBox = document.getElementById('swapBox');
@@ -13,25 +11,18 @@ const priceInfo = document.getElementById('priceInfo');
 const swapButton = document.getElementById('swapButton');
 
 debugElement.innerText = 'JS running...';
-console.log('Debug element:', debugElement);
-console.log('Status element:', statusElement);
 
-// CHIPS testnet config
 const CHIPS_TESTNET = {
-  chainId: '0x2ca', // 714
+  chainId: '714',
   chainName: 'CHIPS Testnet',
-  rpcUrls: ['http://20.178.3.101:8080'],
+  rpcUrls: ['http://20.178.3.101:8545'],
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
 document.addEventListener('DOMContentLoaded', () => {
-  console.log('DOM LOADED:', new Date().toISOString());
-
   const connectBtn = document.getElementById('connectWallet');
-  console.log('Button:', connectBtn);
 
   if (!connectBtn || !statusElement || !debugElement || !swapBox) {
-    console.error('ERROR: Elements missing!');
     statusElement.innerText = 'Error: Elements missing!';
     statusElement.classList.add('error');
     debugElement.innerText = 'Elements missing!';
@@ -39,7 +30,6 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   if (typeof ethers === 'undefined') {
-    console.error('ERROR: Ethers.js missing!');
     statusElement.innerText = 'Error: Ethers.js missing!';
     statusElement.classList.add('error');
     debugElement.innerText = 'Ethers.js missing!';
@@ -47,13 +37,11 @@ document.addEventListener('DOMContentLoaded', () => {
   }
 
   connectBtn.addEventListener('click', () => {
-    console.log('BUTTON CLICKED:', new Date().toISOString());
     debugElement.innerText = 'Connecting...';
     connectWallet();
   });
 
   swapButton.addEventListener('click', () => {
-    console.log('SWAP BUTTON CLICKED:', new Date().toISOString());
     debugElement.innerText = 'Swapping...';
     initiateSwap();
   });
@@ -61,56 +49,57 @@ document.addEventListener('DOMContentLoaded', () => {
   amountIn.addEventListener('input', updatePriceEstimate);
 
   debugElement.innerText = 'Setup complete!';
-  console.log('SETUP COMPLETE:', new Date().toISOString());
 });
 
 let provider, signer, account;
 
-// Mock token addresses (replace with actual)
-const CHIPS_TOKEN = '0xYOUR_CHIPS_TOKEN_ADDRESS';
-const USDT_TOKEN = '0xYOUR_USDT_TOKEN_ADDRESS';
-const SWAP_CONTRACT_ADDRESS = '0xYOUR_SWAP_CONTRACT_ADDRESS';
+const USDT_ADDRESS = '0x5A5cb08Ffea579Ac235e3Ee34B00854e4cEfCbBA'; // Ganti
+const DEX_ADDRESS = '0x3FB0be3029ADCecb52B0cc94825049FC2b9c0dd2'; // Ganti
 
-// Example AMM ABI (replace with actual)
-const SWAP_CONTRACT_ABI = [
+const DEX_ABI = [
   {
-    "inputs": [
-      { "name": "amountIn", "type": "uint256" },
-      { "name": "amountOutMin", "type": "uint256" },
-      { "name": "path", "type": "address[]" },
-      { "name": "to", "type": "address" },
-      { "name": "deadline", "type": "uint256" }
-    ],
-    "name": "swapExactTokensForTokens",
-    "outputs": [{ "name": "amounts", "type": "uint256[]" }],
-    "stateMutability": "nonpayable",
+    "inputs": [{ "name": "usdtAmountOut", "type": "uint256" }],
+    "name": "swapChipsToUsdt",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "usdtAmountIn", "type": "uint256" }],
+    "name": "swapUsdtToChips",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "chipsIn", "type": "uint256" }],
+    "name": "getUsdtOut",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "usdtIn", "type": "uint256" }],
+    "name": "getChipsOut",
+    "outputs": [{ "name": "", "type": "uint256" }],
+    "stateMutability": "pure",
     "type": "function"
   }
 ];
 
-// USDT contract ABI (for mint/burn, if applicable)
 const USDT_ABI = [
   {
-    "inputs": [{ "name": "amount", "type": "uint256" }],
-    "name": "mint",
-    "outputs": [],
-    "stateMutability": "nonpayable",
-    "type": "function"
-  },
-  {
-    "inputs": [{ "name": "amount", "type": "uint256" }],
-    "name": "burn",
-    "outputs": [],
+    "inputs": [{ "name": "spender", "type": "address" }, { "name": "amount", "type": "uint256" }],
+    "name": "approve",
+    "outputs": [{ "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
   }
 ];
 
 async function connectWallet() {
-  console.log('CONNECT WALLET:', new Date().toISOString());
   try {
     if (!window.ethereum?.isMetaMask) {
-      console.error('MetaMask not detected');
       statusElement.innerText = 'Error: Install MetaMask!';
       statusElement.classList.add('error');
       debugElement.innerText = 'MetaMask missing!';
@@ -120,10 +109,9 @@ async function connectWallet() {
     provider = new ethers.providers.Web3Provider(window.ethereum, {
       chainId: 714,
       name: 'chips-testnet',
-      ensAddress: null // Disable ENS
+      ensAddress: null
     });
 
-    // Switch to CHIPS testnet
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
@@ -143,13 +131,11 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     account = accounts[0];
     signer = provider.getSigner();
-    console.log('Connected:', account);
     statusElement.innerText = `Connected: ${account}`;
     statusElement.classList.add('success');
     debugElement.innerText = 'Connected!';
     swapBox.style.display = 'block';
   } catch (error) {
-    console.error('Error:', error);
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
     debugElement.innerText = `Error: ${error.message}`;
@@ -159,14 +145,18 @@ async function connectWallet() {
 async function updatePriceEstimate() {
   if (!amountIn.value || !provider) return;
   try {
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
-    // Mock price (replace with contract call)
-    const price = 1; // 1 CHIPS = 1 USDT
-    const amountOutValue = ethers.utils.formatUnits(amount.mul(price), 18);
-    amountOut.value = amountOutValue;
-    priceInfo.innerText = `Price: 1 ${tokenIn.value} = ${price} ${tokenOut.value}`;
+    let amountOut;
+    if (tokenIn.value === 'CHIPS') {
+      amountOut = await contract.getUsdtOut(amount);
+    } else {
+      amountOut = await contract.getChipsOut(amount);
+    }
+    amountOut = ethers.utils.formatUnits(amountOut, 18);
+    amountOut.value = amountOut;
+    priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
   } catch (error) {
-    console.error('Price estimate error:', error);
     priceInfo.innerText = `Error: ${error.message}`;
   }
 }
@@ -178,44 +168,28 @@ async function initiateSwap() {
     return;
   }
   try {
-    const contract = new ethers.Contract(SWAP_CONTRACT_ADDRESS, SWAP_CONTRACT_ABI, signer);
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
-    const amountOutMin = ethers.utils.parseUnits('0', 18); // Slippage
-    const path = tokenIn.value === 'CHIPS' ? [CHIPS_TOKEN, USDT_TOKEN] : [USDT_TOKEN, CHIPS_TOKEN];
-    const to = account;
-    const deadline = Math.floor(Date.now() / 1000) + 60 * 30;
+    const fee = ethers.utils.parseEther("0.1");
 
-    console.log('Swapping:', { amount, amountOutMin, path, to, deadline });
-    statusElement.innerText = 'Swapping...';
-    debugElement.innerText = 'Swapping...';
-
-    // Mint/Burn logic for USDT
-    const usdtContract = new ethers.Contract(USDT_TOKEN, USDT_ABI, signer);
-    if (tokenOut.value === 'USDT') {
-      // CHIPS → USDT: Mint USDT
-      console.log('Minting USDT:', amount);
-      const mintTx = await usdtContract.mint(amount);
-      await mintTx.wait();
-      console.log('Minted USDT:', mintTx.hash);
+    let tx;
+    if (tokenIn.value === 'CHIPS') {
+      const chipsIn = amount;
+      tx = await contract.swapChipsToUsdt(amount, {
+        value: chipsIn.add(fee)
+      });
     } else {
-      // USDT → CHIPS: Burn USDT
-      console.log('Burning USDT:', amount);
-      const burnTx = await usdtContract.burn(amount);
-      await burnTx.wait();
-      console.log('Burned USDT:', burnTx.hash);
+      const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      await usdtContract.approve(DEX_ADDRESS, amount);
+      tx = await contract.swapUsdtToChips(amount, { value: fee });
     }
 
-    // AMM swap
-    const tx = await contract.swapExactTokensForTokens(amount, amountOutMin, path, to, deadline);
-    console.log('Transaction sent:', tx.hash);
     statusElement.innerText = `Swapping... (Tx: ${tx.hash})`;
     await tx.wait();
-    console.log('Swap complete:', tx.hash);
     statusElement.innerText = `Swap complete! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
     debugElement.innerText = 'Swap complete!';
   } catch (error) {
-    console.error('Swap error:', error);
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
     debugElement.innerText = `Error: ${error.message}`;
