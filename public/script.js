@@ -1,4 +1,4 @@
-console.log('SCRIPT DIMUAT:', new Date().toISOString());
+console.log('SCRIPT LOADED:', new Date().toISOString());
 
 const debugElement = document.getElementById('debug');
 const statusElement = document.getElementById('status');
@@ -12,7 +12,7 @@ const swapButton = document.getElementById('swapButton');
 const mintButton = document.getElementById('mintButton');
 const burnButton = document.getElementById('burnButton');
 
-debugElement.innerText = 'JS berjalan...';
+debugElement.innerText = 'JavaScript running...';
 
 const CHIPS_TESTNET = {
   chainId: '714',
@@ -21,58 +21,65 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
-const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0"; // Wallet Anda untuk menerima fee
+const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
 const USDT_ADDRESS = "0x5A5cb08Ffea579Ac235e3Ee34B00854e4cEfCbBA";
 const DEX_ADDRESS = "0x3FB0be3029ADCecb52B0cc94825049FC2b9c0dd2";
 
 const DEX_ABI = [
   {
-    "inputs": [{ "name": "usdtAmountOut", "type": "uint256" }],
+    "inputs": [{ "internalType": "uint256", "name": "usdtAmountOut", "type": "uint256" }],
     "name": "swapChipsToUsdt",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
   {
-    "inputs": [{ "name": "usdtAmountIn", "type": "uint256" }],
+    "inputs": [{ "internalType": "uint256", "name": "usdtAmountIn", "type": "uint256" }],
     "name": "swapUsdtToChips",
     "outputs": [],
     "stateMutability": "payable",
     "type": "function"
   },
   {
-    "inputs": [{ "name": "chipsIn", "type": "uint256" }],
+    "inputs": [{ "internalType": "uint256", "name": "chipsIn", "type": "uint256" }],
     "name": "getUsdtOut",
-    "outputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "pure",
     "type": "function"
   },
   {
-    "inputs": [{ "name": "usdtIn", "type": "uint256" }],
+    "inputs": [{ "internalType": "uint256", "name": "usdtIn", "type": "uint256" }],
     "name": "getChipsOut",
-    "outputs": [{ "name": "", "type": "uint256" }],
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
     "stateMutability": "pure",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "FEE",
+    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "stateMutability": "view",
     "type": "function"
   }
 ];
 
 const USDT_ABI = [
   {
-    "inputs": [{ "name": "spender", "type": "address" }, { "name": "amount", "type": "uint256" }],
+    "inputs": [{ "internalType": "address", "name": "spender", "type": "address" }, { "internalType": "uint256", "name": "value", "type": "uint256" }],
     "name": "approve",
-    "outputs": [{ "name": "", "type": "bool" }],
+    "outputs": [{ "internalType": "bool", "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [{ "name": "to", "type": "address" }, { "name": "value", "type": "uint256" }],
+    "inputs": [{ "internalType": "address", "name": "to", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }],
     "name": "mint",
     "outputs": [],
-    "stateMutability": "payable",
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [{ "name": "value", "type": "uint256" }],
+    "inputs": [{ "internalType": "address", "name": "from", "type": "address" }, { "internalType": "uint256", "name": "amount", "type": "uint256" }],
     "name": "burn",
     "outputs": [],
     "stateMutability": "nonpayable",
@@ -84,42 +91,42 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connectWallet');
 
   if (!connectBtn || !statusElement || !debugElement || !swapBox) {
-    statusElement.innerText = 'Error: Elemen tidak ditemukan!';
+    statusElement.innerText = 'Error: Page elements not found!';
     statusElement.classList.add('error');
-    debugElement.innerText = 'Elemen tidak ditemukan!';
+    debugElement.innerText = 'Error: Page elements not found!';
     return;
   }
 
   if (typeof ethers === 'undefined') {
-    statusElement.innerText = 'Error: Ethers.js tidak ditemukan!';
+    statusElement.innerText = 'Error: Ethers.js not loaded!';
     statusElement.classList.add('error');
-    debugElement.innerText = 'Ethers.js tidak ditemukan!';
+    debugElement.innerText = 'Error: Ethers.js not loaded!';
     return;
   }
 
   connectBtn.addEventListener('click', () => {
-    debugElement.innerText = 'Menghubungkan...';
+    debugElement.innerText = 'Connecting wallet...';
     connectWallet();
   });
 
   swapButton.addEventListener('click', () => {
-    debugElement.innerText = 'Melakukan swap...';
+    debugElement.innerText = 'Initiating swap...';
     initiateSwap();
   });
 
   mintButton.addEventListener('click', () => {
-    debugElement.innerText = 'Melakukan mint...';
+    debugElement.innerText = 'Initiating mint...';
     initiateMint();
   });
 
   burnButton.addEventListener('click', () => {
-    debugElement.innerText = 'Melakukan burn...';
+    debugElement.innerText = 'Initiating burn...';
     initiateBurn();
   });
 
   amountIn.addEventListener('input', updatePriceEstimate);
 
-  debugElement.innerText = 'Setup selesai!';
+  debugElement.innerText = 'Setup complete!';
 });
 
 let provider, signer, account;
@@ -127,9 +134,9 @@ let provider, signer, account;
 async function connectWallet() {
   try {
     if (!window.ethereum?.isMetaMask) {
-      statusElement.innerText = 'Error: Pasang MetaMask!';
+      statusElement.innerText = 'Error: Please install MetaMask!';
       statusElement.classList.add('error');
-      debugElement.innerText = 'MetaMask tidak ditemukan!';
+      debugElement.innerText = 'Error: MetaMask not found!';
       return;
     }
 
@@ -142,7 +149,7 @@ async function connectWallet() {
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '714' }]
+        params: [{ chainId: '0x2ca' }]
       });
     } catch (switchError) {
       if (switchError.code === 4902) {
@@ -158,9 +165,9 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     account = accounts[0];
     signer = provider.getSigner();
-    statusElement.innerText = `Terhubung: ${account}`;
+    statusElement.innerText = `Connected: ${account}`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Terhubung!';
+    debugElement.innerText = 'Wallet connected!';
     swapBox.style.display = 'block';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
@@ -181,16 +188,17 @@ async function updatePriceEstimate() {
       estimatedOut = await contract.getChipsOut(amount);
     }
     amountOut.value = ethers.utils.formatUnits(estimatedOut, 18);
-    priceInfo.innerText = `Harga: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
+    priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
   } catch (error) {
-    priceInfo.innerText = `Error: ${error.message}`;
+    priceInfo.innerText = `Error calculating price: ${error.message}`;
   }
 }
 
 async function initiateSwap() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
+    statusElement.innerText = 'Error: Connect wallet and enter amount!';
     statusElement.classList.add('error');
+    debugElement.innerText = 'Error: Missing wallet or amount!';
     return;
   }
   try {
@@ -201,19 +209,20 @@ async function initiateSwap() {
     let tx;
     if (tokenIn.value === 'CHIPS') {
       tx = await contract.swapChipsToUsdt(amount, {
-        value: amount.add(fee)
+        value: amount.add(fee),
+        gasLimit: 300000
       });
     } else {
       const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
-      await usdtContract.approve(DEX_ADDRESS, amount);
-      tx = await contract.swapUsdtToChips(amount, { value: fee });
+      await usdtContract.approve(DEX_ADDRESS, amount, { gasLimit: 100000 });
+      tx = await contract.swapUsdtToChips(amount, { value: fee, gasLimit: 300000 });
     }
 
-    statusElement.innerText = `Sedang swap... (Tx: ${tx.hash})`;
+    statusElement.innerText = `Swapping... (Tx: ${tx.hash})`;
     await tx.wait();
-    statusElement.innerText = `Swap selesai! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Swap completed! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Swap selesai!';
+    debugElement.innerText = 'Swap completed!';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
@@ -223,32 +232,40 @@ async function initiateSwap() {
 
 async function initiateMint() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
+    statusElement.innerText = 'Error: Connect wallet and enter amount!';
     statusElement.classList.add('error');
+    debugElement.innerText = 'Error: Missing wallet or amount!';
     return;
   }
   try {
     const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
 
-    const tx = await usdtContract.mint(account, amount, {
-      value: amount.add(fee)
-    });
+    // Cek apakah DEX memiliki cukup CHIPS untuk mint
+    const dexBalance = await provider.getBalance(DEX_ADDRESS);
+    if (dexBalance.lt(amount)) {
+      throw new Error("Insufficient CHIPS in DEX for minting");
+    }
 
-    statusElement.innerText = `Sedang mint... (Tx: ${tx.hash})`;
+    // Panggil mint di kontrak USDT
+    const tx = await usdtContract.mint(account, amount, { gasLimit: 200000 });
+
+    statusElement.innerText = `Minting... (Tx: ${tx.hash})`;
     await tx.wait();
 
-    // Transfer fee ke wallet Anda
+    // Kirim fee ke FEE_RECEIVER
     const feeTx = await signer.sendTransaction({
       to: FEE_RECEIVER,
-      value: fee
+      value: fee,
+      gasLimit: 21000
     });
     await feeTx.wait();
 
-    statusElement.innerText = `Mint selesai! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Mint completed! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Mint selesai!';
+    debugElement.innerText = 'Mint completed!';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
@@ -258,30 +275,40 @@ async function initiateMint() {
 
 async function initiateBurn() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
+    statusElement.innerText = 'Error: Connect wallet and enter amount!';
     statusElement.classList.add('error');
+    debugElement.innerText = 'Error: Missing wallet or amount!';
     return;
   }
   try {
     const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const dexContract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
 
-    const tx = await usdtContract.burn(amount);
+    // Cek allowance dan approve jika diperlukan
+    const allowance = await usdtContract.allowance(account, USDT_ADDRESS);
+    if (allowance.lt(amount)) {
+      await usdtContract.approve(USDT_ADDRESS, amount, { gasLimit: 100000 });
+    }
 
-    statusElement.innerText = `Sedang burn... (Tx: ${tx.hash})`;
+    // Panggil burn di kontrak USDT
+    const tx = await usdtContract.burn(account, amount, { gasLimit: 200000 });
+
+    statusElement.innerText = `Burning... (Tx: ${tx.hash})`;
     await tx.wait();
 
-    // Transfer fee ke wallet Anda
+    // Kirim fee ke FEE_RECEIVER
     const feeTx = await signer.sendTransaction({
       to: FEE_RECEIVER,
-      value: fee
+      value: fee,
+      gasLimit: 21000
     });
     await feeTx.wait();
 
-    statusElement.innerText = `Burn selesai! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Burn completed! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Burn selesai!';
+    debugElement.innerText = 'Burn completed!';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
