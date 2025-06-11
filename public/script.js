@@ -12,7 +12,7 @@ const mintButton = document.getElementById('mintButton');
 const burnButton = document.getElementById('burnButton');
 
 const CHIPS_TESTNET = {
-  chainId: '714',
+  chainId: '0x2ca',
   chainName: 'CHIPS Testnet',
   rpcUrls: ['http://20.63.3.101:8545'],
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
@@ -151,18 +151,18 @@ let provider, jsonRpcProvider, signer, account;
 
 // Inisialisasi JsonRpcProvider
 jsonRpcProvider = new ethers.providers.JsonRpcProvider('http://20.63.3.101:8545', {
-  chainId: 714,
+  chainId: 0x2ca,
 });
 
 async function checkWalletConnection() {
   if (!provider || !window.ethereum) return;
   try {
     const network = await provider.getNetwork();
-    if (network.chainId !== 714) {
+    if (network.chainId !== 0x2ca) {
       console.warn('Jaringan salah, beralih...');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '714' }],
+        params: [{ chainId: '0x2ca' }],
       });
     }
     const accounts = await provider.send('eth_accounts', []);
@@ -190,13 +190,13 @@ async function connectWallet() {
     while (attempts > 0) {
       try {
         provider = new ethers.providers.Web3Provider(window.ethereum, {
-          chainId: 714,
+          chainId: 0x2ca,
           timeout: 90000, // 90 detik
         });
 
         const network = await provider.getNetwork();
         console.log('Terhubung ke jaringan:', network);
-        if (network.chainId !== 714) {
+        if (network.chainId !== 0x2ca) {
           try {
             await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
