@@ -50,10 +50,10 @@ function connectWallet() {
     const provider = window.ethereum?.isMetaMask ? window.ethereum : null;
     if (!provider) {
       console.error('MetaMask not detected');
-      statusElement.innerText = 'Error: Install MetaMask or disable Yoroi!';
+      statusElement.innerText = 'Error: Install MetaMask!';
       statusElement.classList.add('error');
       debugElement.innerText = 'MetaMask missing!';
-      alert('MetaMask not detected! Disable Yoroi.');
+      alert('MetaMask not detected!');
       return;
     }
 
