@@ -12,20 +12,21 @@ const mintButton = document.getElementById('mintButton');
 const burnButton = document.getElementById('burnButton');
 
 const CHIPS_TESTNET = {
-  chainId: '714',
+  chainId: '0x2ca', // Hex untuk chainId 714
   chainName: 'CHIPS Testnet',
-  rpcUrls: ['http://20.63.3.101:8545'],
-  nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
+  rpcUrls: ['https://20.63.3.101:8545'], // Ganti ke HTTPS jika node mendukung
+  nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 },
 };
 
-// Alamat lowercase (tanpa checksum)
-const FEE_RECEIVER = "0x00d1cba86120485486debef7fae54132612b41b0";
-const USDT_ADDRESS = "0x5a5cb08ffea579ac235e3ee34b00854e4cefcbba";
-const DEX_ADDRESS = "0x3fb0be3029adc6cb52b0cc94825049fc2b9c0dd2";
+// Alamat kontrak (pastikan sudah benar dan menggunakan checksum)
+const FEE_RECEIVER = "0x00D1Cba86120485486DEBEf7fAe54132612B41b0";
+const USDT_ADDRESS = "0x5A5cB08ffEa579Ac235E3Ee34B00854e4cEFcBbA";
+const DEX_ADDRESS = "0x3fB0Be3029Adc6CB52b0Cc94825049Fc2B9C0dD2";
 
-console.log('Using addresses:', { FEE_RECEIVER, USDT_ADDRESS, DEX_ADDRESS });
+console.log('Menggunakan alamat:', { FEE_RECEIVER, USDT_ADDRESS, DEX_ADDRESS });
 
 const DEX_ABI = [
+  // ABI sama seperti sebelumnya
   {
     inputs: [{ internalType: "uint256", name: "usdtAmountOut", type: "uint256" }],
     name: "swapChipsToUsdt",
@@ -78,6 +79,7 @@ const DEX_ABI = [
 ];
 
 const USDT_ABI = [
+  // ABI sama seperti sebelumnya
   {
     inputs: [
       { internalType: "address", name: "spender", type: "address" },
@@ -124,13 +126,13 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connectBtn');
 
   if (!connectBtn || !statusElement || !swapBox) {
-    statusElement.innerText = 'Error: DOM elements not found!';
+    statusElement.innerText = 'Error: Elemen DOM tidak ditemukan!';
     statusElement.classList.add('error');
     return;
   }
 
   if (typeof ethers === 'undefined') {
-    statusElement.innerText = 'Error: Ethers.js not loaded!';
+    statusElement.innerText = 'Error: Ethers.js tidak dimuat!';
     statusElement.classList.add('error');
     return;
   }
@@ -143,104 +145,105 @@ document.addEventListener('DOMContentLoaded', () => {
 
   swapBox.style.display = 'block';
 
-  // Polling koneksi
-  setInterval(checkWalletConnection, 2000); // 2 detik
+  // Polling koneksi dompet
+  setInterval(checkWalletConnection, 2000);
 });
 
 let provider, jsonRpcProvider, signer, account;
 
-// Inisialisasi JsonRpcProvider
-jsonRpcProvider = new ethers.providers.JsonRpcProvider('http://20.63.3.101:8545', {
-  chainId: 714,
-});
+// Inisialisasi JsonRpcProvider dengan fallback
+const initJsonRpcProvider = async () => {
+  try {
+    jsonRpcProvider = new ethers.providers.JsonRpcProvider(
+      'https://20.63.3.101:8545', // Ganti ke HTTPS jika node mendukung
+      { chainId: 714 }
+    );
+    await jsonRpcProvider.ready; // Tunggu hingga provider siap
+    console.log('JsonRpcProvider berhasil diinisialisasi');
+  } catch (error) {
+    console.error('Gagal menginisialisasi JsonRpcProvider:', error);
+    statusElement.innerText = 'Error: Tidak dapat terhubung ke node RPC!';
+    statusElement.classList.add('error');
+  }
+};
 
 async function checkWalletConnection() {
   if (!provider || !window.ethereum) return;
   try {
     const network = await provider.getNetwork();
     if (network.chainId !== 714) {
-      console.warn('Wrong network, switching...');
+      console.warn('Jaringan salah, mencoba beralih...');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '714' }],
+        params: [{ chainId: '0x2ca' }],
       });
     }
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length === 0) {
-      console.warn('Wallet disconnected!');
-      statusElement.innerText = 'Wallet disconnected! Please reconnect.';
+      console.warn('Dompet terputus!');
+      statusElement.innerText = 'Dompet terputus! Silakan sambungkan kembali.';
       statusElement.classList.add('error');
       swapButton.disabled = true;
       mintButton.disabled = true;
       burnButton.disabled = true;
     }
   } catch (error) {
-    console.error('Wallet connection check failed:', error);
+    console.error('Pengecekan koneksi dompet gagal:', error);
   }
 }
 
 async function connectWallet() {
   try {
     if (!window.ethereum) {
-      throw new Error('Install MetaMask or Rabby Wallet!');
+      throw new Error('Install MetaMask atau Rabby Wallet!');
     }
 
-    // Retry koneksi
-    let attempts = 7;
-    while (attempts > 0) {
+    provider = new ethers.providers.Web3Provider(window.ethereum, {
+      chainId: 714,
+      timeout: 90000,
+    });
+
+    const network = await provider.getNetwork();
+    console.log('Terhubung ke jaringan:', network);
+    if (network.chainId !== 714) {
       try {
-        provider = new ethers.providers.Web3Provider(window.ethereum, {
-          chainId: 714,
-          timeout: 90000, // 90 detik
+        await window.ethereum.request({
+          method: 'wallet_switchEthereumChain',
+          params: [{ chainId: '0x2ca' }],
         });
-
-        const network = await provider.getNetwork();
-        console.log('Connected to network:', network);
-        if (network.chainId !== 714) {
-          try {
-            await window.ethereum.request({
-              method: 'wallet_switchEthereumChain',
-              params: [{ chainId: '0x2ca' }],
-            });
-          } catch (switchError) {
-            if (switchError.code === 4902) {
-              await window.ethereum.request({
-                method: 'wallet_addEthereumChain',
-                params: [CHIPS_TESTNET],
-              });
-            } else {
-              throw switchError;
-            }
-          }
+      } catch (switchError) {
+        if (switchError.code === 4902) {
+          await window.ethereum.request({
+            method: 'wallet_addEthereumChain',
+            params: [CHIPS_TESTNET],
+          });
+        } else {
+          throw switchError;
         }
-
-        const accounts = await provider.send('eth_requestAccounts', []);
-        account = accounts[0];
-        signer = provider.getSigner();
-        statusElement.innerText = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
-        statusElement.classList.add('success');
-        swapButton.disabled = false;
-        mintButton.disabled = false;
-        burnButton.disabled = false;
-        break;
-      } catch (e) {
-        attempts--;
-        console.warn(`Connect attempt failed (${attempts} left):`, e.message);
-        if (attempts === 0) throw new Error(`Failed to connect: ${e.message}`);
-        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
+
+    await initJsonRpcProvider(); // Inisialisasi JsonRpcProvider
+
+    const accounts = await provider.send('eth_requestAccounts', []);
+    account = accounts[0];
+    signer = provider.getSigner();
+    statusElement.innerText = `Terhubung: ${account.slice(0, 6)}...${account.slice(-4)}`;
+    statusElement.classList.add('success');
+    swapButton.disabled = false;
+    mintButton.disabled = false;
+    burnButton.disabled = false;
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
-    console.error('Connect wallet error:', error);
+    console.error('Error koneksi dompet:', error);
   }
 }
 
 async function updatePriceEstimate() {
   if (!amountIn.value || !jsonRpcProvider) return;
   try {
-    console.log('Initializing DEX contract for price estimate with address:', DEX_ADDRESS);
+    console.log('Menginisialisasi kontrak DEX untuk estimasi harga dengan alamat:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, jsonRpcProvider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
@@ -250,29 +253,26 @@ async function updatePriceEstimate() {
       estimatedOut = await contract.getChipsOut(amount);
     }
     amountOut.value = ethers.utils.formatUnits(estimatedOut, 18);
-    priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
+    priceInfo.innerText = `Harga: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS biaya)`;
   } catch (error) {
-    const errorMsg = error.reason || error.message || 'Unknown error';
-    statusElement.innerText = `Error calculating price: ${errorMsg}`;
+    const errorMsg = error.reason || error.message || 'Error tidak diketahui';
+    statusElement.innerText = `Error menghitung harga: ${errorMsg}`;
     statusElement.classList.add('error');
-    console.error('Price estimate error:', error);
-    // Fallback kalo checksum error
-    if (error.message.includes('bad address checksum')) {
-      console.warn('Checksum error detected, using raw address...');
-      amountOut.value = amountIn.value; // Assume 1:1 for UI
-      priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
-    }
+    console.error('Error estimasi harga:', error);
+    // Fallback jika terjadi error
+    amountOut.value = amountIn.value; // Asumsi 1:1 untuk UI
+    priceInfo.innerText = `Harga: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS biaya)`;
   }
 }
 
 async function initiateSwap() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Connect wallet and enter amount!';
+    statusElement.innerText = 'Error: Sambungkan dompet dan masukkan jumlah!';
     statusElement.classList.add('error');
     return;
   }
   try {
-    console.log('Initializing DEX contract for swap with address:', DEX_ADDRESS);
+    console.log('Menginisialisasi kontrak DEX untuk swap dengan alamat:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -282,16 +282,16 @@ async function initiateSwap() {
     if (tokenIn.value === 'CHIPS') {
       tx = await contract.swapChipsToUsdt(amount, {
         value: amount.add(fee),
-        gasPrice: ethers.BigNumber.from("10000000000"),
+        gasPrice: ethers.utils.parseUnits("10", "gwei"),
         nonce,
       });
     } else {
-      console.log('Initializing USDT contract for swap with address:', USDT_ADDRESS);
+      console.log('Menginisialisasi kontrak USDT untuk swap dengan alamat:', USDT_ADDRESS);
       const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
       const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
       if (allowance.lt(amount)) {
         const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
-          gasPrice: ethers.BigNumber.from("10000000000"),
+          gasPrice: ethers.utils.parseUnits("10", "gwei"),
           nonce,
         });
         await approveTx.wait();
@@ -299,31 +299,31 @@ async function initiateSwap() {
       }
       tx = await contract.swapUsdtToChips(amount, {
         value: fee,
-        gasPrice: ethers.BigNumber.from("10000000000"),
+        gasPrice: ethers.utils.parseUnits("10", "gwei"),
         nonce,
       });
     }
 
-    statusElement.innerText = `Swapping... (Tx: ${tx.hash})`;
+    statusElement.innerText = `Sedang melakukan swap... (Tx: ${tx.hash})`;
     await tx.wait();
-    statusElement.innerText = `Swap completed! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Swap selesai! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
   } catch (error) {
-    const errorMsg = error.reason || error.message || 'Unknown error';
+    const errorMsg = error.reason || error.message || 'Error tidak diketahui';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
-    console.error('Swap error:', error);
+    console.error('Error swap:', error);
   }
 }
 
 async function initiateMint() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Connect wallet and enter amount!';
+    statusElement.innerText = 'Error: Sambungkan dompet dan masukkan jumlah!';
     statusElement.classList.add('error');
     return;
   }
   try {
-    console.log('Initializing DEX contract for mint with address:', DEX_ADDRESS);
+    console.log('Menginisialisasi kontrak DEX untuk mint dengan alamat:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -331,37 +331,37 @@ async function initiateMint() {
 
     const dexBalance = await jsonRpcProvider.getBalance(DEX_ADDRESS);
     if (dexBalance.lt(amount)) {
-      throw new Error("Insufficient CHIPS in DEX for minting");
+      throw new Error("CHIPS tidak cukup di kontrak DEX untuk minting");
     }
 
     const tx = await contract.mintUsdt(amount, {
       value: amount.add(fee),
-      gasPrice: ethers.BigNumber.from("10000000000"),
+      gasPrice: ethers.utils.parseUnits("10", "gwei"),
       nonce,
     });
 
-    statusElement.innerText = `Minting... (Tx: ${tx.hash})`;
+    statusElement.innerText = `Sedang minting... (Tx: ${tx.hash})`;
     await tx.wait();
-    statusElement.innerText = `Mint completed! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Minting selesai! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
   } catch (error) {
-    const errorMsg = error.reason || error.message || 'Unknown error';
+    const errorMsg = error.reason || error.message || 'Error tidak diketahui';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
-    console.error('Mint error:', error);
+    console.error('Error mint:', error);
   }
 }
 
 async function initiateBurn() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Connect wallet and enter amount!';
+    statusElement.innerText = 'Error: Sambungkan dompet dan masukkan jumlah!';
     statusElement.classList.add('error');
     return;
   }
   try {
-    console.log('Initializing DEX contract for burn with address:', DEX_ADDRESS);
+    console.log('Menginisialisasi kontrak DEX untuk burn dengan alamat:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-    console.log('Initializing USDT contract for burn with address:', USDT_ADDRESS);
+    console.log('Menginisialisasi kontrak USDT untuk burn dengan alamat:', USDT_ADDRESS);
     const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -370,7 +370,7 @@ async function initiateBurn() {
     const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
     if (allowance.lt(amount)) {
       const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
-        gasPrice: ethers.BigNumber.from("10000000000"),
+        gasPrice: ethers.utils.parseUnits("10", "gwei"),
         nonce,
       });
       await approveTx.wait();
@@ -379,18 +379,18 @@ async function initiateBurn() {
 
     const tx = await contract.burnUsdt(amount, {
       value: fee,
-      gasPrice: ethers.BigNumber.from("10000000000"),
+      gasPrice: ethers.utils.parseUnits("10", "gwei"),
       nonce,
     });
 
-    statusElement.innerText = `Burning... (Tx: ${tx.hash})`;
+    statusElement.innerText = `Sedang burning... (Tx: ${tx.hash})`;
     await tx.wait();
-    statusElement.innerText = `Burn completed! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Burn selesai! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
   } catch (error) {
-    const errorMsg = error.reason || error.message || 'Unknown error';
+    const errorMsg = error.reason || error.message || 'Error tidak diketahui';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
-    console.error('Burn error:', error);
+    console.error('Error burn:', error);
   }
 }
