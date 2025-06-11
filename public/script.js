@@ -18,27 +18,17 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
-// Alamat raw (tanpa validasi checksum ketat)
+// Alamat raw (tanpa validasi checksum)
 const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
 const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA";
 const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2";
 
-// Fungsi validasi alamat dengan bypass checksum
-function getSafeAddress(address, name) {
-  try {
-    const validated = ethers.utils.getAddress(address);
-    console.log(`${name} validated: ${validated}`);
-    return validated;
-  } catch (e) {
-    console.warn(`Bypassing checksum for ${name}: ${address} due to error:`, e.message);
-    return address; // Pakai alamat asli tanpa validasi
-  }
-}
-
-console.log('Validating addresses...');
-const safeFeeReceiver = getSafeAddress(FEE_RECEIVER, 'FEE_RECEIVER');
-const safeUsdtAddress = getSafeAddress(USDT_ADDRESS, 'USDT_ADDRESS');
-const safeDexAddress = getSafeAddress(DEX_ADDRESS, 'DEX_ADDRESS');
+// Log alamat yang dipake
+console.log('Using addresses:', {
+  FEE_RECEIVER,
+  USDT_ADDRESS,
+  DEX_ADDRESS
+});
 
 const DEX_ABI = [
   {
@@ -157,18 +147,46 @@ document.addEventListener('DOMContentLoaded', () => {
   amountIn.addEventListener('input', updatePriceEstimate);
 
   swapBox.style.display = 'block';
+
+  // Cek koneksi wallet berkala
+  setInterval(checkWalletConnection, 5000);
 });
 
 let provider, signer, account;
 
+async function checkWalletConnection() {
+  if (!provider || !window.ethereum) return;
+  try {
+    const network = await provider.getNetwork();
+    if (network.chainId !== 714) {
+      console.warn('Wrong network detected, attempting to switch...');
+      await window.ethereum.request({
+        method: 'wallet_switchEthereumChain',
+        params: [{ chainId: '0x2ca' }],
+      });
+    }
+    const accounts = await provider.send('eth_accounts', []);
+    if (accounts.length === 0) {
+      console.warn('Wallet disconnected, updating UI...');
+      statusElement.innerText = 'Wallet disconnected! Please reconnect.';
+      statusElement.classList.add('error');
+      swapButton.disabled = true;
+      mintButton.disabled = true;
+      burnButton.disabled = true;
+    }
+  } catch (error) {
+    console.error('Wallet connection check failed:', error);
+  }
+}
+
 async function connectWallet() {
   try {
-    if (!window.ethereum?.isMetaMask) {
-      throw new Error('Please install MetaMask!');
+    if (!window.ethereum) {
+      throw new Error('Please install MetaMask or Rabby Wallet!');
     }
 
-    // Retry logic untuk koneksi MetaMask
-    let attempts = 3;
+    // Retry logic untuk koneksi wallet
+    let attempts = 5;
     while (attempts > 0) {
       try {
         provider = new ethers.providers.Web3Provider(window.ethereum, {
@@ -195,23 +213,23 @@ async function connectWallet() {
             }
           }
         }
-        break; // Berhasil konek, keluar dari loop
+
+        const accounts = await provider.send('eth_requestAccounts', []);
+        account = accounts[0];
+        signer = provider.getSigner();
+        statusElement.innerText = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
+        statusElement.classList.add('success');
+        swapButton.disabled = false;
+        mintButton.disabled = false;
+        burnButton.disabled = false;
+        break; // Berhasil konek
       } catch (e) {
         attempts--;
         console.warn(`Connect attempt failed (${attempts} left):`, e.message);
         if (attempts === 0) throw new Error(`Failed to connect after retries: ${e.message}`);
-        await new Promise(resolve => setTimeout(resolve, 1000)); // Tunggu 1 detik sebelum retry
+        await new Promise(resolve => setTimeout(resolve, 1500)); // Tunggu 1.5 detik
       }
     }
-
-    const accounts = await provider.send('eth_requestAccounts', []);
-    account = accounts[0];
-    signer = provider.getSigner();
-    statusElement.innerText = `Connected: ${account.slice(0, 6)}...${account.slice(-4)}`;
-    statusElement.classList.add('success');
-    swapButton.disabled = false;
-    mintButton.disabled = false;
-    burnButton.disabled = false;
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
@@ -222,8 +240,9 @@ async function connectWallet() {
 async function updatePriceEstimate() {
   if (!amountIn.value || !provider) return;
   try {
-    console.log('Initializing DEX contract for price estimate with address:', safeDexAddress);
-    const contract = new ethers.Contract(safeDexAddress, DEX_ABI, provider);
+    console.log('Initializing DEX contract for price estimate with address:', DEX_ADDRESS);
+    // Bypass validasi checksum dengan alamat raw
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
     if (tokenIn.value === 'CHIPS') {
@@ -248,8 +267,8 @@ async function initiateSwap() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for swap with address:', safeDexAddress);
-    const contract = new ethers.Contract(safeDexAddress, DEX_ABI, signer);
+    console.log('Initializing DEX contract for swap with address:', DEX_ADDRESS);
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     let nonce = await provider.getTransactionCount(account, 'pending');
@@ -262,11 +281,11 @@ async function initiateSwap() {
         nonce,
       });
     } else {
-      console.log('Initializing USDT contract for swap with address:', safeUsdtAddress);
-      const usdtContract = new ethers.Contract(safeUsdtAddress, USDT_ABI, signer);
-      const allowance = await usdtContract.allowance(account, safeDexAddress);
+      console.log('Initializing USDT contract for swap with address:', USDT_ADDRESS);
+      const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+      const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
       if (allowance.lt(amount)) {
-        const approveTx = await usdtContract.approve(safeDexAddress, amount, {
+        const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
           gasPrice: ethers.BigNumber.from("10000000000"),
           nonce,
         });
@@ -287,7 +306,6 @@ async function initiateSwap() {
   } catch (error) {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error: ${errorMsg}`;
-    statusElement.classList.add('error');
     console.error('Swap error:', error);
   }
 }
@@ -299,15 +317,15 @@ async function initiateMint() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for mint with address:', safeDexAddress);
-    const contract = new ethers.Contract(safeDexAddress, DEX_ABI, signer);
+    console.log('Initiating DEX contract for mint with address:', DEX_ADDRESS);
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     const nonce = await provider.getTransactionCount(account, 'pending');
 
-    const dexBalance = await provider.getBalance(safeDexAddress);
+    const dexBalance = await provider.getBalance(DEX_ADDRESS);
     if (dexBalance.lt(amount)) {
-      throw new Error("Insufficient CHIPS in DEX for minting");
+      throw new Error('Insufficient CHIPS in DEX for minting');
     }
 
     const tx = await contract.mintUsdt(amount, {
@@ -335,17 +353,17 @@ async function initiateBurn() {
     return;
   }
   try {
-    console.log('Initializing DEX contract for burn with address:', safeDexAddress);
-    const contract = new ethers.Contract(safeDexAddress, DEX_ABI, signer);
-    console.log('Initializing USDT contract for burn with address:', safeUsdtAddress);
-    const usdtContract = new ethers.Contract(safeUsdtAddress, USDT_ABI, signer);
+    console.log('Initializing DEX contract for burn with address:', DEX_ADDRESS);
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
+    console.log('Initializing USDT contract for burn with address:', USDT_ADDRESS);
+    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     let nonce = await provider.getTransactionCount(account, 'pending');
 
-    const allowance = await usdtContract.allowance(account, safeDexAddress);
+    const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
     if (allowance.lt(amount)) {
-      const approveTx = await usdtContract.approve(safeDexAddress, amount, {
+      const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
         gasPrice: ethers.BigNumber.from("10000000000"),
         nonce,
       });
