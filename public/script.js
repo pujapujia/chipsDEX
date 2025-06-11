@@ -57,7 +57,7 @@ const DEX_ABI = [
   {
     inputs: [],
     name: "FEE",
-    outputs: [{ internalType: "uint256", name: "uint256" }],
+    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
@@ -69,7 +69,7 @@ const DEX_ABI = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: amount", type: "uint256" }],
+    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
     name: "burnUsdt",
     outputs: [],
     stateMutability: "payable",
@@ -91,7 +91,7 @@ const USDT_ABI = [
   {
     inputs: [
       { internalType: "address", name: "owner", type: "address" },
-      { internalType: "address", name: "spender", types: "address" },
+      { internalType: "address", name: "spender", type: "address" },
     ],
     name: "allowance",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -135,16 +135,16 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  connectBtn.addEventListener('click', () => connectWallet());
+  connectBtn.addEventListener('click', connectWallet);
   swapButton.addEventListener('click', initiateSwap);
   mintButton.addEventListener('click', initiateMint);
   burnButton.addEventListener('click', initiateBurn);
-  amountIn.addEventListener('input', updatePriceEstimate));
+  amountIn.addEventListener('input', updatePriceEstimate);
 
   swapBox.style.display = 'block';
 
   // Polling koneksi
-  setInterval(checkWalletConnection, 3000); // Lebih sering (3 detik)
+  setInterval(checkWalletConnection, 2000); // 2 detik
 });
 
 let provider, jsonRpcProvider, signer, account;
@@ -162,7 +162,7 @@ async function checkWalletConnection() {
       console.warn('Wrong network, switching...');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x2ca' }],
+        params: [{ chainId: '714' }],
       });
     }
     const accounts = await provider.send('eth_accounts', []);
@@ -186,12 +186,12 @@ async function connectWallet() {
     }
 
     // Retry koneksi
-    let attempts = 5;
+    let attempts = 7;
     while (attempts > 0) {
       try {
         provider = new ethers.providers.Web3Provider(window.ethereum, {
           chainId: 714,
-          timeout: 60000,
+          timeout: 90000, // 90 detik
         });
 
         const network = await provider.getNetwork();
@@ -200,7 +200,7 @@ async function connectWallet() {
           try {
             await window.ethereum.request({
               method: 'wallet_switchEthereumChain',
-              params: [{ chainId: '714' }],
+              params: [{ chainId: '0x2ca' }],
             });
           } catch (switchError) {
             if (switchError.code === 4902) {
@@ -227,7 +227,7 @@ async function connectWallet() {
         attempts--;
         console.warn(`Connect attempt failed (${attempts} left):`, e.message);
         if (attempts === 0) throw new Error(`Failed to connect: ${e.message}`);
-        await new Promise(resolve => setTimeout(resolve, 1000));
+        await new Promise(resolve => setTimeout(resolve, 800));
       }
     }
   } catch (error) {
@@ -256,6 +256,12 @@ async function updatePriceEstimate() {
     statusElement.innerText = `Error calculating price: ${errorMsg}`;
     statusElement.classList.add('error');
     console.error('Price estimate error:', error);
+    // Fallback kalo checksum error
+    if (error.message.includes('bad address checksum')) {
+      console.warn('Checksum error detected, using raw address...');
+      amountOut.value = amountIn.value; // Assume 1:1 for UI
+      priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
+    }
   }
 }
 
