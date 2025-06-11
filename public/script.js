@@ -142,7 +142,7 @@ async function connectWallet() {
     try {
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
-        params: [{ chainId: '0x2ca' }]
+        params: [{ chainId: '714' }]
       });
     } catch (switchError) {
       if (switchError.code === 4902) {
