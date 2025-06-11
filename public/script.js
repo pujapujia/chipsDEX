@@ -1,4 +1,4 @@
-console.log('SCRIPT LOADED:', new Date().toISOString());
+console.log('SCRIPT DIMUAT:', new Date().toISOString());
 
 const debugElement = document.getElementById('debug');
 const statusElement = document.getElementById('status');
@@ -9,8 +9,10 @@ const tokenOut = document.getElementById('tokenOut');
 const amountOut = document.getElementById('amountOut');
 const priceInfo = document.getElementById('priceInfo');
 const swapButton = document.getElementById('swapButton');
+const mintButton = document.getElementById('mintButton');
+const burnButton = document.getElementById('burnButton');
 
-debugElement.innerText = 'JS running...';
+debugElement.innerText = 'JS berjalan...';
 
 const CHIPS_TESTNET = {
   chainId: '714',
@@ -19,42 +21,9 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
-document.addEventListener('DOMContentLoaded', () => {
-  const connectBtn = document.getElementById('connectWallet');
-
-  if (!connectBtn || !statusElement || !debugElement || !swapBox) {
-    statusElement.innerText = 'Error: Elements missing!';
-    statusElement.classList.add('error');
-    debugElement.innerText = 'Elements missing!';
-    return;
-  }
-
-  if (typeof ethers === 'undefined') {
-    statusElement.innerText = 'Error: Ethers.js missing!';
-    statusElement.classList.add('error');
-    debugElement.innerText = 'Ethers.js missing!';
-    return;
-  }
-
-  connectBtn.addEventListener('click', () => {
-    debugElement.innerText = 'Connecting...';
-    connectWallet();
-  });
-
-  swapButton.addEventListener('click', () => {
-    debugElement.innerText = 'Swapping...';
-    initiateSwap();
-  });
-
-  amountIn.addEventListener('input', updatePriceEstimate);
-
-  debugElement.innerText = 'Setup complete!';
-});
-
-let provider, signer, account;
-
-const USDT_ADDRESS = '0x5A5cb08Ffea579Ac235e3Ee34B00854e4cEfCbBA'; // Ganti
-const DEX_ADDRESS = '0x3FB0be3029ADCecb52B0cc94825049FC2b9c0dd2'; // Ganti
+const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0"; // Wallet Anda untuk menerima fee
+const USDT_ADDRESS = "0x5A5cb08Ffea579Ac235e3Ee34B00854e4cEfCbBA";
+const DEX_ADDRESS = "0x3FB0be3029ADCecb52B0cc94825049FC2b9c0dd2";
 
 const DEX_ABI = [
   {
@@ -94,15 +63,73 @@ const USDT_ABI = [
     "outputs": [{ "name": "", "type": "bool" }],
     "stateMutability": "nonpayable",
     "type": "function"
+  },
+  {
+    "inputs": [{ "name": "to", "type": "address" }, { "name": "value", "type": "uint256" }],
+    "name": "mint",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
+  },
+  {
+    "inputs": [{ "name": "value", "type": "uint256" }],
+    "name": "burn",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
   }
 ];
+
+document.addEventListener('DOMContentLoaded', () => {
+  const connectBtn = document.getElementById('connectWallet');
+
+  if (!connectBtn || !statusElement || !debugElement || !swapBox) {
+    statusElement.innerText = 'Error: Elemen tidak ditemukan!';
+    statusElement.classList.add('error');
+    debugElement.innerText = 'Elemen tidak ditemukan!';
+    return;
+  }
+
+  if (typeof ethers === 'undefined') {
+    statusElement.innerText = 'Error: Ethers.js tidak ditemukan!';
+    statusElement.classList.add('error');
+    debugElement.innerText = 'Ethers.js tidak ditemukan!';
+    return;
+  }
+
+  connectBtn.addEventListener('click', () => {
+    debugElement.innerText = 'Menghubungkan...';
+    connectWallet();
+  });
+
+  swapButton.addEventListener('click', () => {
+    debugElement.innerText = 'Melakukan swap...';
+    initiateSwap();
+  });
+
+  mintButton.addEventListener('click', () => {
+    debugElement.innerText = 'Melakukan mint...';
+    initiateMint();
+  });
+
+  burnButton.addEventListener('click', () => {
+    debugElement.innerText = 'Melakukan burn...';
+    initiateBurn();
+  });
+
+  amountIn.addEventListener('input', updatePriceEstimate);
+
+  debugElement.innerText = 'Setup selesai!';
+});
+
+let provider, signer, account;
 
 async function connectWallet() {
   try {
     if (!window.ethereum?.isMetaMask) {
-      statusElement.innerText = 'Error: Install MetaMask!';
+      statusElement.innerText = 'Error: Pasang MetaMask!';
       statusElement.classList.add('error');
-      debugElement.innerText = 'MetaMask missing!';
+      debugElement.innerText = 'MetaMask tidak ditemukan!';
       return;
     }
 
@@ -131,9 +158,9 @@ async function connectWallet() {
     const accounts = await provider.send('eth_requestAccounts', []);
     account = accounts[0];
     signer = provider.getSigner();
-    statusElement.innerText = `Connected: ${account}`;
+    statusElement.innerText = `Terhubung: ${account}`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Connected!';
+    debugElement.innerText = 'Terhubung!';
     swapBox.style.display = 'block';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
@@ -147,15 +174,14 @@ async function updatePriceEstimate() {
   try {
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
-    let amountOut;
+    let estimatedOut;
     if (tokenIn.value === 'CHIPS') {
-      amountOut = await contract.getUsdtOut(amount);
+      estimatedOut = await contract.getUsdtOut(amount);
     } else {
-      amountOut = await contract.getChipsOut(amount);
+      estimatedOut = await contract.getChipsOut(amount);
     }
-    amountOut = ethers.utils.formatUnits(amountOut, 18);
-    amountOut.value = amountOut;
-    priceInfo.innerText = `Price: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
+    amountOut.value = ethers.utils.formatUnits(estimatedOut, 18);
+    priceInfo.innerText = `Harga: 1 ${tokenIn.value} = 1 ${tokenOut.value} (+0.1 CHIPS fee)`;
   } catch (error) {
     priceInfo.innerText = `Error: ${error.message}`;
   }
@@ -163,7 +189,7 @@ async function updatePriceEstimate() {
 
 async function initiateSwap() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = 'Error: Connect wallet and enter amount!';
+    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
     statusElement.classList.add('error');
     return;
   }
@@ -174,9 +200,8 @@ async function initiateSwap() {
 
     let tx;
     if (tokenIn.value === 'CHIPS') {
-      const chipsIn = amount;
       tx = await contract.swapChipsToUsdt(amount, {
-        value: chipsIn.add(fee)
+        value: amount.add(fee)
       });
     } else {
       const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
@@ -184,11 +209,79 @@ async function initiateSwap() {
       tx = await contract.swapUsdtToChips(amount, { value: fee });
     }
 
-    statusElement.innerText = `Swapping... (Tx: ${tx.hash})`;
+    statusElement.innerText = `Sedang swap... (Tx: ${tx.hash})`;
     await tx.wait();
-    statusElement.innerText = `Swap complete! (Tx: ${tx.hash})`;
+    statusElement.innerText = `Swap selesai! (Tx: ${tx.hash})`;
     statusElement.classList.add('success');
-    debugElement.innerText = 'Swap complete!';
+    debugElement.innerText = 'Swap selesai!';
+  } catch (error) {
+    statusElement.innerText = `Error: ${error.message}`;
+    statusElement.classList.add('error');
+    debugElement.innerText = `Error: ${error.message}`;
+  }
+}
+
+async function initiateMint() {
+  if (!provider || !signer || !amountIn.value) {
+    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
+    statusElement.classList.add('error');
+    return;
+  }
+  try {
+    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const amount = ethers.utils.parseUnits(amountIn.value, 18);
+    const fee = ethers.utils.parseEther("0.1");
+
+    const tx = await usdtContract.mint(account, amount, {
+      value: amount.add(fee)
+    });
+
+    statusElement.innerText = `Sedang mint... (Tx: ${tx.hash})`;
+    await tx.wait();
+
+    // Transfer fee ke wallet Anda
+    const feeTx = await signer.sendTransaction({
+      to: FEE_RECEIVER,
+      value: fee
+    });
+    await feeTx.wait();
+
+    statusElement.innerText = `Mint selesai! (Tx: ${tx.hash})`;
+    statusElement.classList.add('success');
+    debugElement.innerText = 'Mint selesai!';
+  } catch (error) {
+    statusElement.innerText = `Error: ${error.message}`;
+    statusElement.classList.add('error');
+    debugElement.innerText = `Error: ${error.message}`;
+  }
+}
+
+async function initiateBurn() {
+  if (!provider || !signer || !amountIn.value) {
+    statusElement.innerText = 'Error: Hubungkan wallet dan masukkan jumlah!';
+    statusElement.classList.add('error');
+    return;
+  }
+  try {
+    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    const amount = ethers.utils.parseUnits(amountIn.value, 18);
+    const fee = ethers.utils.parseEther("0.1");
+
+    const tx = await usdtContract.burn(amount);
+
+    statusElement.innerText = `Sedang burn... (Tx: ${tx.hash})`;
+    await tx.wait();
+
+    // Transfer fee ke wallet Anda
+    const feeTx = await signer.sendTransaction({
+      to: FEE_RECEIVER,
+      value: fee
+    });
+    await feeTx.wait();
+
+    statusElement.innerText = `Burn selesai! (Tx: ${tx.hash})`;
+    statusElement.classList.add('success');
+    debugElement.innerText = 'Burn selesai!';
   } catch (error) {
     statusElement.innerText = `Error: ${error.message}`;
     statusElement.classList.add('error');
