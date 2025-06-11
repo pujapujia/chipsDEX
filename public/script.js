@@ -18,10 +18,10 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
-// Alamat raw
-const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
-const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA";
-const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2";
+// Alamat lowercase (tanpa checksum)
+const FEE_RECEIVER = "0x00d1cba86120485486debef7fae54132612b41b0";
+const USDT_ADDRESS = "0x5a5cb08ffea579ac235e3ee34b00854e4cefcbba";
+const DEX_ADDRESS = "0x3fb0be3029adc6cb52b0cc94825049fc2b9c0dd2";
 
 console.log('Using addresses:', { FEE_RECEIVER, USDT_ADDRESS, DEX_ADDRESS });
 
@@ -57,7 +57,7 @@ const DEX_ABI = [
   {
     inputs: [],
     name: "FEE",
-    outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
+    outputs: [{ internalType: "uint256", name: "uint256" }],
     stateMutability: "view",
     type: "function",
   },
@@ -69,7 +69,7 @@ const DEX_ABI = [
     type: "function",
   },
   {
-    inputs: [{ internalType: "uint256", name: "amount", type: "uint256" }],
+    inputs: [{ internalType: "uint256", name: amount", type: "uint256" }],
     name: "burnUsdt",
     outputs: [],
     stateMutability: "payable",
@@ -91,7 +91,7 @@ const USDT_ABI = [
   {
     inputs: [
       { internalType: "address", name: "owner", type: "address" },
-      { internalType: "address", name: "spender", type: "address" },
+      { internalType: "address", name: "spender", types: "address" },
     ],
     name: "allowance",
     outputs: [{ internalType: "uint256", name: "", type: "uint256" }],
@@ -100,7 +100,7 @@ const USDT_ABI = [
   },
   {
     inputs: [
-      { internalType: "address', name: 'to', type: 'address" },
+      { internalType: "address", name: "to", type: "address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "mint",
@@ -124,7 +124,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const connectBtn = document.getElementById('connectBtn');
 
   if (!connectBtn || !statusElement || !swapBox) {
-    statusElement.innerText = 'Error: Page elements not found!';
+    statusElement.innerText = 'Error: DOM elements not found!';
     statusElement.classList.add('error');
     return;
   }
@@ -135,21 +135,21 @@ document.addEventListener('DOMContentLoaded', () => {
     return;
   }
 
-  connectBtn.addEventListener('click', connectWallet);
+  connectBtn.addEventListener('click', () => connectWallet());
   swapButton.addEventListener('click', initiateSwap);
   mintButton.addEventListener('click', initiateMint);
   burnButton.addEventListener('click', initiateBurn);
-  amountIn.addEventListener('input', updatePriceEstimate);
+  amountIn.addEventListener('input', updatePriceEstimate));
 
   swapBox.style.display = 'block';
 
-  // Polling koneksi wallet
-  setInterval(checkWalletConnection, 5000);
+  // Polling koneksi
+  setInterval(checkWalletConnection, 3000); // Lebih sering (3 detik)
 });
 
 let provider, jsonRpcProvider, signer, account;
 
-// Inisialisasi JsonRpcProvider untuk panggilan read-only
+// Inisialisasi JsonRpcProvider
 jsonRpcProvider = new ethers.providers.JsonRpcProvider('http://20.63.3.101:8545', {
   chainId: 714,
 });
@@ -159,7 +159,7 @@ async function checkWalletConnection() {
   try {
     const network = await provider.getNetwork();
     if (network.chainId !== 714) {
-      console.warn('Wrong network detected, switching...');
+      console.warn('Wrong network, switching...');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: '0x2ca' }],
@@ -167,7 +167,7 @@ async function checkWalletConnection() {
     }
     const accounts = await provider.send('eth_accounts', []);
     if (accounts.length === 0) {
-      console.warn('Wallet disconnected, updating UI...');
+      console.warn('Wallet disconnected!');
       statusElement.innerText = 'Wallet disconnected! Please reconnect.';
       statusElement.classList.add('error');
       swapButton.disabled = true;
@@ -227,7 +227,7 @@ async function connectWallet() {
         attempts--;
         console.warn(`Connect attempt failed (${attempts} left):`, e.message);
         if (attempts === 0) throw new Error(`Failed to connect: ${e.message}`);
-        await new Promise(resolve => setTimeout(resolve, 1500));
+        await new Promise(resolve => setTimeout(resolve, 1000));
       }
     }
   } catch (error) {
@@ -241,7 +241,6 @@ async function updatePriceEstimate() {
   if (!amountIn.value || !jsonRpcProvider) return;
   try {
     console.log('Initializing DEX contract for price estimate with address:', DEX_ADDRESS);
-    // Pakai JsonRpcProvider untuk hindari validasi MetaMask
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, jsonRpcProvider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
@@ -324,7 +323,7 @@ async function initiateMint() {
     const fee = ethers.utils.parseEther("0.1");
     const nonce = await provider.getTransactionCount(account, 'pending');
 
-    const dexBalance = await provider.getBalance(DEX_ADDRESS);
+    const dexBalance = await jsonRpcProvider.getBalance(DEX_ADDRESS);
     if (dexBalance.lt(amount)) {
       throw new Error("Insufficient CHIPS in DEX for minting");
     }
