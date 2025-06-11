@@ -63,24 +63,26 @@
 <body>
   <div class="container">
     <h1>CHIPS DEX</h1>
-    <button id="connectWallet">Connect Wallet</button>
-    <p id="status">Not connected!</p>
-    <p id="debug">Checking JS...</p>
+    <button id="connectWallet">Hubungkan Wallet</button>
+    <p id="status">Belum terhubung!</p>
+    <p id="debug">Memeriksa JS...</p>
     <div class="swap-box" id="swapBox" style="display: none;">
-      <h3>Swap Tokens</h3>
+      <h3>Swap Token</h3>
       <select id="tokenIn">
         <option value="CHIPS">CHIPS</option>
         <option value="USDT">USDT</option>
       </select>
-      <input type="number" id="amountIn" placeholder="Amount to swap" min="0">
+      <input type="number" id="amountIn" placeholder="Jumlah untuk swap" min="0">
       <div class="swap-icon">↓</div>
       <select id="tokenOut">
         <option value="USDT">USDT</option>
         <option value="CHIPS">CHIPS</option>
       </select>
-      <input type="number" id="amountOut" placeholder="Estimated output" readonly>
-      <p id="priceInfo">Price: --</p>
-      <button id="swapButton">Swap Now</button>
+      <input type="number" id="amountOut" placeholder="Estimasi output" readonly>
+      <p id="priceInfo">Harga: --</p>
+      <button id="swapButton">Swap Sekarang</button>
+      <button id="mintButton">Mint USDT</button>
+      <button id="burnButton">Burn USDT</button>
     </div>
   </div>
   <script src="https://unpkg.com/ethers@5.7.2/dist/ethers.umd.min.js"></script>
