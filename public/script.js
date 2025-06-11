@@ -19,8 +19,19 @@ const CHIPS_TESTNET = {
 };
 
 const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
-const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA"; // Checksum diperbaiki
-const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2"; // Checksum diperbaiki
+const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA"; // Checksum valid
+const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2"; // Checksum valid
+
+// Validasi alamat saat load
+console.log('Validating addresses...');
+try {
+  ethers.utils.getAddress(FEE_RECEIVER);
+  ethers.utils.getAddress(USDT_ADDRESS);
+  ethers.utils.getAddress(DEX_ADDRESS);
+  console.log('All addresses are valid!');
+} catch (e) {
+  console.error('Address validation failed:', e.message);
+}
 
 const DEX_ABI = [
   {
@@ -187,6 +198,7 @@ async function connectWallet() {
 async function updatePriceEstimate() {
   if (!amountIn.value || !provider) return;
   try {
+    console.log('Initializing DEX contract with address:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
@@ -201,6 +213,7 @@ async function updatePriceEstimate() {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error calculating price: ${errorMsg}`;
     statusElement.classList.add('error');
+    console.error('Price estimate error:', error);
   }
 }
 
@@ -211,6 +224,7 @@ async function initiateSwap() {
     return;
   }
   try {
+    console.log('Initializing DEX contract for swap with address:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -224,6 +238,7 @@ async function initiateSwap() {
         nonce,
       });
     } else {
+      console.log('Initializing USDT contract with address:', USDT_ADDRESS);
       const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
       const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
       if (allowance.lt(amount)) {
@@ -249,6 +264,7 @@ async function initiateSwap() {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
+    console.error('Swap error:', error);
   }
 }
 
@@ -259,6 +275,7 @@ async function initiateMint() {
     return;
   }
   try {
+    console.log('Initializing DEX contract for mint with address:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -283,18 +300,21 @@ async function initiateMint() {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
+    console.error('Mint error:', error);
   }
 }
 
 async function initiateBurn() {
   if (!provider || !signer || !amountIn.value) {
-    statusElement.innerText = `Error: Connect wallet and enter amount!`;
+    statusElement.innerText = 'Error: Connect wallet and enter amount!';
     statusElement.classList.add('error');
     return;
   }
   try {
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
-    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, signer);
+    console.log('Initializing DEX contract for burn with address:', DEX_ADDRESS);
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider.getSigner());
+    console.log('Initializing USDT contract for burn with address:', USDT_ADDRESS);
+    const usdtContract = new ethers.Contract(USDT_ADDRESS, USDT_ABI, provider.getSigner());
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
     let nonce = await provider.getTransactionCount(account, 'pending');
@@ -302,16 +322,16 @@ async function initiateBurn() {
     const allowance = await usdtContract.allowance(account, DEX_ADDRESS);
     if (allowance.lt(amount)) {
       const approveTx = await usdtContract.approve(DEX_ADDRESS, amount, {
-        gasPrice: ethers.BigNumber.from("10000000000"),
+        gasPrice: ethers.utils.parseUnits("1", "gwei"),
         nonce,
       });
       await approveTx.wait();
-      nonce++; // Increment nonce setelah approval
+      nonce++;
     }
 
     const tx = await contract.burnUsdt(amount, {
       value: fee,
-      gasPrice: ethers.BigNumber.from("10000000000"),
+      gasPrice: ethers.utils.parseUnits("1", "gwei"),
       nonce,
     });
 
@@ -323,5 +343,6 @@ async function initiateBurn() {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error: ${errorMsg}`;
     statusElement.classList.add('error');
+    console.error('Burn error:', error);
   }
 }
