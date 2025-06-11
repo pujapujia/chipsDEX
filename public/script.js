@@ -18,17 +18,12 @@ const CHIPS_TESTNET = {
   nativeCurrency: { name: 'CHIPS', symbol: 'CHIPS', decimals: 18 }
 };
 
-// Alamat raw (tanpa validasi checksum)
+// Alamat raw
 const FEE_RECEIVER = "0x00d1cBA86120485486deBef7FAE54132612b41B0";
 const USDT_ADDRESS = "0x5A5cb08FfEa579aC235E3eE34b00854E4CEfCbBA";
 const DEX_ADDRESS = "0x3FB0be3029aDC6CB52b0cC94825049FC2b9c0dD2";
 
-// Log alamat yang dipake
-console.log('Using addresses:', {
-  FEE_RECEIVER,
-  USDT_ADDRESS,
-  DEX_ADDRESS
-});
+console.log('Using addresses:', { FEE_RECEIVER, USDT_ADDRESS, DEX_ADDRESS });
 
 const DEX_ABI = [
   {
@@ -105,7 +100,7 @@ const USDT_ABI = [
   },
   {
     inputs: [
-      { internalType: "address", name: "to", type: "address" },
+      { internalType: "address', name: 'to', type: 'address" },
       { internalType: "uint256", name: "amount", type: "uint256" },
     ],
     name: "mint",
@@ -148,18 +143,23 @@ document.addEventListener('DOMContentLoaded', () => {
 
   swapBox.style.display = 'block';
 
-  // Cek koneksi wallet berkala
+  // Polling koneksi wallet
   setInterval(checkWalletConnection, 5000);
 });
 
-let provider, signer, account;
+let provider, jsonRpcProvider, signer, account;
+
+// Inisialisasi JsonRpcProvider untuk panggilan read-only
+jsonRpcProvider = new ethers.providers.JsonRpcProvider('http://20.63.3.101:8545', {
+  chainId: 714,
+});
 
 async function checkWalletConnection() {
   if (!provider || !window.ethereum) return;
   try {
     const network = await provider.getNetwork();
     if (network.chainId !== 714) {
-      console.warn('Wrong network detected, attempting to switch...');
+      console.warn('Wrong network detected, switching...');
       await window.ethereum.request({
         method: 'wallet_switchEthereumChain',
         params: [{ chainId: '0x2ca' }],
@@ -182,10 +182,10 @@ async function checkWalletConnection() {
 async function connectWallet() {
   try {
     if (!window.ethereum) {
-      throw new Error('Please install MetaMask or Rabby Wallet!');
+      throw new Error('Install MetaMask or Rabby Wallet!');
     }
 
-    // Retry logic untuk koneksi wallet
+    // Retry koneksi
     let attempts = 5;
     while (attempts > 0) {
       try {
@@ -222,12 +222,12 @@ async function connectWallet() {
         swapButton.disabled = false;
         mintButton.disabled = false;
         burnButton.disabled = false;
-        break; // Berhasil konek
+        break;
       } catch (e) {
         attempts--;
         console.warn(`Connect attempt failed (${attempts} left):`, e.message);
-        if (attempts === 0) throw new Error(`Failed to connect after retries: ${e.message}`);
-        await new Promise(resolve => setTimeout(resolve, 1500)); // Tunggu 1.5 detik
+        if (attempts === 0) throw new Error(`Failed to connect: ${e.message}`);
+        await new Promise(resolve => setTimeout(resolve, 1500));
       }
     }
   } catch (error) {
@@ -238,11 +238,11 @@ async function connectWallet() {
 }
 
 async function updatePriceEstimate() {
-  if (!amountIn.value || !provider) return;
+  if (!amountIn.value || !jsonRpcProvider) return;
   try {
     console.log('Initializing DEX contract for price estimate with address:', DEX_ADDRESS);
-    // Bypass validasi checksum dengan alamat raw
-    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, provider);
+    // Pakai JsonRpcProvider untuk hindari validasi MetaMask
+    const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, jsonRpcProvider);
     const amount = ethers.utils.parseUnits(amountIn.value || '0', 18);
     let estimatedOut;
     if (tokenIn.value === 'CHIPS') {
@@ -290,7 +290,7 @@ async function initiateSwap() {
           nonce,
         });
         await approveTx.wait();
-        nonce++; // Increment nonce setelah approval
+        nonce++;
       }
       tx = await contract.swapUsdtToChips(amount, {
         value: fee,
@@ -306,6 +306,7 @@ async function initiateSwap() {
   } catch (error) {
     const errorMsg = error.reason || error.message || 'Unknown error';
     statusElement.innerText = `Error: ${errorMsg}`;
+    statusElement.classList.add('error');
     console.error('Swap error:', error);
   }
 }
@@ -317,7 +318,7 @@ async function initiateMint() {
     return;
   }
   try {
-    console.log('Initiating DEX contract for mint with address:', DEX_ADDRESS);
+    console.log('Initializing DEX contract for mint with address:', DEX_ADDRESS);
     const contract = new ethers.Contract(DEX_ADDRESS, DEX_ABI, signer);
     const amount = ethers.utils.parseUnits(amountIn.value, 18);
     const fee = ethers.utils.parseEther("0.1");
@@ -325,7 +326,7 @@ async function initiateMint() {
 
     const dexBalance = await provider.getBalance(DEX_ADDRESS);
     if (dexBalance.lt(amount)) {
-      throw new Error('Insufficient CHIPS in DEX for minting');
+      throw new Error("Insufficient CHIPS in DEX for minting");
     }
 
     const tx = await contract.mintUsdt(amount, {
@@ -368,7 +369,7 @@ async function initiateBurn() {
         nonce,
       });
       await approveTx.wait();
-      nonce++; // Increment nonce setelah approval
+      nonce++;
     }
 
     const tx = await contract.burnUsdt(amount, {
